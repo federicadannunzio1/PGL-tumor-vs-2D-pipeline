@@ -25,7 +25,7 @@ echo "Start: $(date)"
 echo "Mem:   48G | CPUs: $SLURM_CPUS_PER_TASK"
 echo "================================================"
 
-module load R/4.4.2_10gcc
+module load R/4.5.2_10gcc
 
 PIPELINE_DIR="/lustre/home/gfiscon/projects/PGL/pipeline"
 cd "$PIPELINE_DIR" || exit 1
