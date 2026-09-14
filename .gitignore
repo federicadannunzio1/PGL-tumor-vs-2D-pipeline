@@ -13,6 +13,9 @@ pipeline_linee_vs_tumore/results/
 .Rproj.user/
 *.Rproj
 
+# Dati
+pipeline_linee_vs_tumore/data/
+
 # File di sistema macOS
 .DS_Store
 __MACOSX/
