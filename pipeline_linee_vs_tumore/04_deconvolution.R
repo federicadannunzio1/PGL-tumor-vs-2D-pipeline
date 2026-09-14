@@ -1,0 +1,314 @@
+# =============================================================================
+# 04_deconvolution.R
+# Deconvoluzione bulk RNA-seq (tumore + linee 2D) con MuSiC
+# usando l'scRNA-seq del tumore come reference
+#
+# Obiettivo: mostrare che le linee 2D NON sono composte al 100% da cellule
+# tumorali e che contengono cellule mesenchimali, come nel tumore originale
+#
+# Input:  results/scrna_reference/scrna_expressionset_for_music.RDS
+#         results/bulk_preprocessing/tpm_matrix.csv
+#         data/sample_metadata.csv
+# Output: proporzioni cellulari per campione, figure comparative
+# =============================================================================
+
+source("00_config.R")
+
+suppressPackageStartupMessages({
+  library(MuSiC)
+  library(Biobase)
+  library(dplyr)
+  library(readr)
+  library(tidyr)
+  library(ggplot2)
+  library(ggrepel)
+  library(RColorBrewer)
+  library(rstatix)
+  library(ggpubr)
+})
+
+check_inputs(
+  file.path(RESULTS_SCRNA, "scrna_expressionset_for_music.RDS"),
+  file.path(RESULTS_BULK,  "tpm_matrix.csv"),
+  SAMPLE_METADATA
+)
+
+# -----------------------------------------------------------------------------
+# 1. CARICAMENTO DATI
+# -----------------------------------------------------------------------------
+message("\n--- 1. Caricamento dati ---")
+
+scrna_eset <- readRDS(
+  file.path(RESULTS_SCRNA, "scrna_expressionset_for_music.RDS")
+)
+cat(sprintf("Reference scRNA: %d geni x %d cellule\n",
+            nrow(exprs(scrna_eset)), ncol(exprs(scrna_eset))))
+cat("Tipi cellulari nel reference:\n")
+print(table(scrna_eset$cellType))
+
+tpm_mat <- read_csv(file.path(RESULTS_BULK, "tpm_matrix.csv"),
+                    show_col_types = FALSE) %>%
+  tibble::column_to_rownames("gene_id") %>%
+  as.matrix()
+
+meta <- read_csv(SAMPLE_METADATA, show_col_types = FALSE)
+meta$condition <- factor(meta$condition, levels = c("tumor", "2D"))
+
+cat(sprintf("\nBulk RNA-seq: %d geni x %d campioni\n",
+            nrow(tpm_mat), ncol(tpm_mat)))
+
+# Allinea nomi campioni tra metadata e colonne TPM
+tpm_mat <- tpm_mat[, meta$sample_id]
+
+# -----------------------------------------------------------------------------
+# 2. COSTRUZIONE ExpressionSet PER IL BULK
+# MuSiC richiede che il bulk sia un ExpressionSet
+# -----------------------------------------------------------------------------
+message("\n--- 2. Costruzione ExpressionSet bulk ---")
+
+bulk_eset <- ExpressionSet(
+  assayData = tpm_mat,
+  phenoData = new("AnnotatedDataFrame",
+                  data = data.frame(
+                    row.names  = colnames(tpm_mat),
+                    sample_id  = meta$sample_id,
+                    condition  = meta$condition,
+                    patient    = meta$patient
+                  ))
+)
+
+# -----------------------------------------------------------------------------
+# 3. DECONVOLUZIONE CON MuSiC
+# music_prop(): stima le proporzioni di tipi cellulari per ogni campione bulk
+# usando come reference le medie pesate dal reference scRNA-seq multi-soggetto
+# -----------------------------------------------------------------------------
+message("\n--- 3. Deconvoluzione MuSiC ---")
+message("Questo passo puo' richiedere alcuni minuti...")
+
+set.seed(SEED)
+
+music_results <- music_prop(
+  bulk.mtx    = exprs(bulk_eset),
+  sc.sce      = scrna_eset,
+  clusters    = "cellType",
+  samples     = "sampleID",
+  select.ct   = NULL,              # usa tutti i tipi cellulari
+  verbose     = FALSE
+)
+
+# Estrai la matrice delle proporzioni (campioni x tipi cellulari)
+prop_mat <- music_results$Est.prop.weighted
+
+cat("\nProporzioni stimate (prime righe):\n")
+print(round(head(prop_mat, 5), 3))
+
+# Controlla: le proporzioni sommano a 1?
+cat("\nSomma proporzioni per campione (dovrebbero essere ~1):\n")
+print(round(rowSums(prop_mat), 3))
+
+# -----------------------------------------------------------------------------
+# 4. FORMATTAZIONE RISULTATI
+# -----------------------------------------------------------------------------
+message("\n--- 4. Formattazione risultati ---")
+
+prop_df <- as.data.frame(prop_mat) %>%
+  tibble::rownames_to_column("sample_id") %>%
+  left_join(select(meta, sample_id, condition, patient, paired),
+            by = "sample_id") %>%
+  pivot_longer(
+    cols      = -c(sample_id, condition, patient, paired),
+    names_to  = "cell_type",
+    values_to = "proportion"
+  )
+
+# Flag mesenchimali
+mesenchymal_pattern <- "(?i)(mesench|fibroblast|stromal|sustentacular|MSC)"
+prop_df$is_mesenchymal <- grepl(mesenchymal_pattern,
+                                 prop_df$cell_type, perl = TRUE)
+
+write_csv(prop_df, file.path(RESULTS_DECONV, "music_proportions_long.csv"))
+
+# Formato wide per lettura facile
+prop_wide <- as.data.frame(prop_mat) %>%
+  tibble::rownames_to_column("sample_id") %>%
+  left_join(select(meta, sample_id, condition, patient), by = "sample_id") %>%
+  relocate(condition, patient, .after = sample_id)
+
+write_csv(prop_wide, file.path(RESULTS_DECONV, "music_proportions_wide.csv"))
+
+cat("\nRiepilogo proporzione mesenchimale:\n")
+mes_summary <- prop_df %>%
+  filter(is_mesenchymal) %>%
+  group_by(sample_id, condition) %>%
+  summarise(prop_mesenchymal = sum(proportion), .groups = "drop") %>%
+  arrange(condition, desc(prop_mesenchymal))
+print(mes_summary)
+write_csv(mes_summary, file.path(RESULTS_DECONV, "mesenchymal_proportions_bulk.csv"))
+
+# -----------------------------------------------------------------------------
+# 5. TEST STATISTICO: confronto proporzioni tumore vs 2D
+# Wilcoxon paired test su campioni con coppie complete
+# -----------------------------------------------------------------------------
+message("\n--- 5. Test statistici (Wilcoxon paired) ---")
+
+# Solo coppie paired
+prop_paired <- prop_df %>% filter(paired == TRUE)
+
+stat_results <- prop_paired %>%
+  group_by(cell_type) %>%
+  wilcox_test(proportion ~ condition, paired = TRUE) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance() %>%
+  arrange(p.adj)
+
+cat("\nTest Wilcoxon paired per tipo cellulare:\n")
+print(stat_results)
+write_csv(stat_results,
+          file.path(RESULTS_DECONV, "wilcoxon_celltype_tumor_vs_2D.csv"))
+
+# Tipi cellulari significativamente diversi
+sig_types <- stat_results %>%
+  filter(p.adj < 0.05) %>%
+  pull(cell_type)
+
+cat(sprintf("\nTipi cellulari significativamente diversi (padj < 0.05): %d\n",
+            length(sig_types)))
+if (length(sig_types) > 0) print(sig_types)
+
+# -----------------------------------------------------------------------------
+# 6. FIGURE
+# -----------------------------------------------------------------------------
+message("\n--- 6. Figure ---")
+
+# Palette colori per tipi cellulari
+n_types     <- length(unique(prop_df$cell_type))
+type_colors <- setNames(
+  colorRampPalette(brewer.pal(12, "Paired"))(n_types),
+  unique(prop_df$cell_type)
+)
+
+## 6a. Stacked barplot - composizione per campione
+# Campioni ordinati per paziente, tumore prima poi 2D
+sample_order <- meta %>%
+  arrange(patient, condition) %>%
+  pull(sample_id)
+
+prop_df$sample_id <- factor(prop_df$sample_id, levels = sample_order)
+prop_df$condition <- factor(prop_df$condition, levels = c("tumor", "2D"))
+
+p_stack <- ggplot(prop_df,
+                  aes(x = sample_id, y = proportion, fill = cell_type)) +
+  geom_col(width = 0.85) +
+  scale_fill_manual(values = type_colors) +
+  facet_grid(. ~ condition, scales = "free_x", space = "free_x") +
+  labs(
+    title = "Estimated cell type composition (MuSiC)",
+    subtitle = "Bulk RNA-seq deconvolution using tumor scRNA-seq as reference",
+    x = NULL, y = "Estimated proportion", fill = "Cell type"
+  ) +
+  THEME_PGL +
+  theme(
+    axis.text.x   = element_text(angle = 45, hjust = 1, size = 8),
+    legend.text   = element_text(size = 8),
+    strip.text    = element_text(face = "bold", size = 11)
+  )
+
+ggsave(file.path(RESULTS_DECONV_FIG, "stacked_barplot_proportions.pdf"),
+       p_stack, width = 14, height = 7)
+
+## 6b. Boxplot paired: proporzione mesenchimale tumore vs 2D
+mes_box_df <- prop_df %>%
+  filter(is_mesenchymal) %>%
+  group_by(sample_id, condition, patient) %>%
+  summarise(prop_mes = sum(proportion), .groups = "drop")
+
+p_mes_box <- ggplot(mes_box_df,
+                    aes(x = condition, y = prop_mes * 100,
+                        color = condition, fill = condition)) +
+  geom_boxplot(alpha = 0.3, outlier.shape = NA, width = 0.5) +
+  geom_point(size = 3, alpha = 0.9) +
+  geom_line(aes(group = patient), color = "grey40", alpha = 0.6, linewidth = 0.7) +
+  scale_color_manual(values = COLORS_CONDITION) +
+  scale_fill_manual(values  = COLORS_CONDITION) +
+  stat_compare_means(
+    method = "wilcox.test", paired = TRUE,
+    comparisons = list(c("tumor", "2D")),
+    label = "p.format", label.y.npc = 0.9
+  ) +
+  labs(
+    title    = "Mesenchymal cell proportion",
+    subtitle = "Primary tumor vs 2D cell lines (paired Wilcoxon test)",
+    x = "Condition", y = "% mesenchymal cells",
+    color = NULL, fill = NULL
+  ) +
+  THEME_PGL + theme(legend.position = "none")
+
+ggsave(file.path(RESULTS_DECONV_FIG, "boxplot_mesenchymal_tumor_vs_2D.pdf"),
+       p_mes_box, width = 6, height = 7)
+
+## 6c. Boxplot paired per ogni tipo cellulare significativo
+if (length(sig_types) > 0) {
+  prop_sig <- prop_df %>%
+    filter(cell_type %in% sig_types, paired == TRUE)
+
+  p_sig_types <- ggplot(prop_sig,
+                        aes(x = condition, y = proportion * 100,
+                            color = condition, fill = condition)) +
+    geom_boxplot(alpha = 0.3, outlier.shape = NA, width = 0.5) +
+    geom_point(size = 2) +
+    geom_line(aes(group = patient), color = "grey40", alpha = 0.5,
+              linewidth = 0.5) +
+    scale_color_manual(values = COLORS_CONDITION) +
+    scale_fill_manual(values  = COLORS_CONDITION) +
+    facet_wrap(~ cell_type, scales = "free_y") +
+    labs(
+      title = "Significantly different cell types (padj < 0.05)",
+      x = "Condition", y = "% estimated proportion",
+      color = NULL, fill = NULL
+    ) +
+    THEME_PGL + theme(legend.position = "none")
+
+  ggsave(file.path(RESULTS_DECONV_FIG, "boxplot_significant_celltypes.pdf"),
+         p_sig_types,
+         width  = min(4 * ceiling(sqrt(length(sig_types))), 16),
+         height = min(4 * ceiling(length(sig_types) /
+                        ceiling(sqrt(length(sig_types)))), 16))
+}
+
+## 6d. Heatmap proporzioni (campioni x tipi cellulari)
+prop_heatmap <- prop_mat
+
+# Ordina campioni come stacked barplot
+prop_heatmap <- prop_heatmap[sample_order, ]
+
+ann_row <- data.frame(
+  row.names = rownames(prop_heatmap),
+  Condition = meta$condition[match(rownames(prop_heatmap), meta$sample_id)],
+  Patient   = meta$patient[match(rownames(prop_heatmap), meta$sample_id)]
+)
+
+pdf(file.path(RESULTS_DECONV_FIG, "heatmap_proportions.pdf"),
+    width = 10, height = 8)
+pheatmap::pheatmap(
+  prop_heatmap,
+  annotation_row  = ann_row,
+  annotation_colors = list(Condition = COLORS_CONDITION),
+  color           = colorRampPalette(c("white", "#E64B35"))(100),
+  cluster_rows    = FALSE,
+  cluster_cols    = TRUE,
+  main            = "Estimated cell type proportions (MuSiC)",
+  fontsize         = 9,
+  border_color    = NA
+)
+dev.off()
+
+# -----------------------------------------------------------------------------
+# 7. SALVATAGGIO OGGETTO MuSiC COMPLETO
+# -----------------------------------------------------------------------------
+message("\n--- 7. Salvataggio ---")
+
+saveRDS(music_results,
+        file.path(RESULTS_DECONV, "music_results_full.RDS"))
+
+message("\n=== 04_deconvolution.R completato ===")
+message("Output in: ", RESULTS_DECONV)

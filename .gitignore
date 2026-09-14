@@ -1,0 +1,22 @@
+# R objects (file grandi, non versionare)
+*.RDS
+*.rds
+*.RData
+*.rda
+
+# Output tabelle (generati dagli script)
+pipeline_linee_vs_tumore/results/
+
+# File temporanei R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# File di sistema macOS
+.DS_Store
+__MACOSX/
+
+# File Excel grandi
+*.xlsx
+*.xls
