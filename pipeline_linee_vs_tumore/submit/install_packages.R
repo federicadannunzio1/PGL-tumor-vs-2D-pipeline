@@ -54,6 +54,8 @@ bioc_packages <- c(
   "clusterProfiler", "org.Hs.eg.db", "AnnotationDbi",
   "AnnotationHub",
   "Biobase",
+  "SingleCellExperiment",  # dipendenza MuSiC
+  "TOAST",                 # dipendenza MuSiC
   "ComplexHeatmap", "circlize"
 )
 
