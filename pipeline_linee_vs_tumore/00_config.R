@@ -6,24 +6,45 @@
 
 # -----------------------------------------------------------------------------
 # PERCORSI BASE
+# Rileva automaticamente se gira su cluster (Terastat) o in locale
 # -----------------------------------------------------------------------------
-BASE_DIR <- "/Users/federicadannunzio/Library/CloudStorage/GoogleDrive-federica.dannunzio@uniroma1.it/Drive condivisi/caruana-project/PGL"
+.node <- Sys.info()[["nodename"]]
+.on_cluster <- grepl("terastat|login|compute", .node, ignore.case = TRUE)
 
-PIPELINE_DIR   <- file.path(BASE_DIR, "analisi_fede/pipeline_linee_vs_tumore")
-DATA_DIR       <- file.path(PIPELINE_DIR, "data")
-RESULTS_DIR    <- file.path(PIPELINE_DIR, "results")
+if (.on_cluster) {
+  # --- CLUSTER (Terastat, Sapienza) ---
+  BASE_DIR     <- "/lustre/home/gfiscon/projects/PGL"
+  PIPELINE_DIR <- file.path(BASE_DIR, "pipeline")
+  DATA_DIR     <- file.path(PIPELINE_DIR, "data")
+  RESULTS_DIR  <- file.path(BASE_DIR, "results")
+  N_CORES      <- 8   # adatta in base alle CPU richieste nel job SLURM
 
-# Input - scRNA-seq (oggetto integrato, analisi Pasquale)
-SCRNA_INTEGRATED_RDS <- file.path(BASE_DIR,
-  "analisi_alessio/PGL_PFE_3_integrated_x_DE_complete_annotation.Rds")
+  SCRNA_INTEGRATED_RDS <- file.path(BASE_DIR,
+    "data/scrna_integrated/PGL_PFE_3_integrated_x_DE_complete_annotation.Rds")
+  SCEVAN_DIR      <- file.path(BASE_DIR, "data/scevan")
+  BULK_SALMON_DIR <- file.path(BASE_DIR, "data/bulk_salmon")
+  MARKER_FILE     <- file.path(BASE_DIR, "reference/marker_per_cluster.xlsx")
 
-# Input - scRNA per-sample (per annotazione SCEVAN)
-SCEVAN_DIR <- file.path(BASE_DIR, "analisi_alessio/scevan_iterato_tutti_campioni")
+} else {
+  # --- LOCALE (Mac) ---
+  BASE_DIR <- "/Users/federicadannunzio/Library/CloudStorage/GoogleDrive-federica.dannunzio@uniroma1.it/Drive condivisi/caruana-project/PGL"
+  PIPELINE_DIR <- file.path(BASE_DIR, "analisi_fede/pipeline_linee_vs_tumore")
+  DATA_DIR     <- file.path(PIPELINE_DIR, "data")
+  RESULTS_DIR  <- file.path(PIPELINE_DIR, "results")
+  N_CORES      <- 4
+
+  SCRNA_INTEGRATED_RDS <- file.path(BASE_DIR,
+    "analisi_alessio/PGL_PFE_3_integrated_x_DE_complete_annotation.Rds")
+  SCEVAN_DIR      <- file.path(BASE_DIR, "analisi_alessio/scevan_iterato_tutti_campioni")
+  BULK_SALMON_DIR <- file.path(BASE_DIR, "analisi_pasquale/bulk RNA/RNA counts")
+  MARKER_FILE     <- file.path(BASE_DIR,
+    "analisi_pasquale/scRNA PGL/results/marker_per_cluster.xlsx")
+}
+
+message(sprintf("Ambiente: %s | BASE_DIR: %s", ifelse(.on_cluster, "CLUSTER", "LOCALE"), BASE_DIR))
+
 SCEVAN_SAMPLES <- c("PC190", "PTJ173", "PTJ184", "PTJ185",
                     "PV158 BIS", "PV180", "PV181", "PV193")
-
-# Input - Bulk RNA-seq (file Salmon gene-level)
-BULK_SALMON_DIR <- file.path(BASE_DIR, "analisi_pasquale/bulk RNA/RNA counts")
 
 # Input - Metadata campioni
 SAMPLE_METADATA <- file.path(DATA_DIR, "sample_metadata.csv")
@@ -59,9 +80,6 @@ DECONV_N_MARKERS   <- 200        # marker per tipo cellulare per MuSiC
 # Seed riproducibilità
 SEED <- 42
 set.seed(SEED)
-
-# Numero core per analisi parallele
-N_CORES <- 4
 
 # -----------------------------------------------------------------------------
 # MARKER MESENCHIMALI DI RIFERIMENTO (letteratura)

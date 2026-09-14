@@ -225,10 +225,7 @@ ggsave(file.path(RESULTS_SCRNA, "mesenchymal_proportion_per_sample.pdf"),
 # -----------------------------------------------------------------------------
 message("\n--- 5. Marker per tipo cellulare ---")
 
-marker_file_pasquale <- file.path(
-  BASE_DIR,
-  "analisi_pasquale/scRNA PGL/results/marker_per_cluster.xlsx"
-)
+marker_file_pasquale <- MARKER_FILE
 
 if (file.exists(marker_file_pasquale)) {
   # Usa i marker gia' calcolati da Pasquale
