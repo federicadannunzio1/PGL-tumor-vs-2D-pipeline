@@ -1,20 +1,37 @@
 # =============================================================================
 # install_packages.R
-# Installa tutti i pacchetti R necessari nella home del cluster
-# Esegui UNA SOLA VOLTA prima di lanciare la pipeline:
+# Installa tutti i pacchetti R necessari nella libreria personale su Terastat
+#
+# Procedura (dal login node):
 #   module load R/4.4.2_10gcc
-#   Rscript submit/install_packages.R
+#   R
+#   source("submit/install_packages.R")
+#
+# La prima volta R chiedera' di usare una libreria personale: rispondi YES
+# Scegliere repository italiano quando richiesto (es. Milano o Padova)
 # =============================================================================
 
-# Directory di installazione locale (non richiede permessi di root)
-lib_path <- Sys.getenv("R_LIBS_USER")
-if (lib_path == "") lib_path <- "~/R/library"
-dir.create(lib_path, showWarnings = FALSE, recursive = TRUE)
-.libPaths(lib_path)
+# Repository italiano (evita di dover scegliere manualmente)
+options(repos = c(CRAN = "https://cran.stat.unipd.it"))  # Padova
 
-cat("Installing to:", lib_path, "\n\n")
+cat("=== PGL pipeline - R package installation ===\n")
+cat("Repository:", getOption("repos"), "\n\n")
 
-# CRAN
+# Helper: installa solo se non presente
+install_if_missing <- function(pkg, bioc = FALSE) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    cat(sprintf("Installing: %s ...\n", pkg))
+    if (bioc) {
+      BiocManager::install(pkg, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(pkg)
+    }
+  } else {
+    cat(sprintf("OK (already installed): %s\n", pkg))
+  }
+}
+
+# --- CRAN ---
 cran_packages <- c(
   "BiocManager",
   "dplyr", "readr", "tidyr", "tibble",
@@ -22,21 +39,14 @@ cran_packages <- c(
   "pheatmap", "RColorBrewer",
   "openxlsx", "readxl",
   "rstatix", "ggpubr",
-  "ggvenn"
+  "ggvenn",
+  "remotes"
 )
 
-for (pkg in cran_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    cat("Installing", pkg, "...\n")
-    install.packages(pkg, lib = lib_path,
-                     repos = "https://cloud.r-project.org",
-                     quiet = TRUE)
-  } else {
-    cat("OK (already installed):", pkg, "\n")
-  }
-}
+cat("--- CRAN packages ---\n")
+for (pkg in cran_packages) install_if_missing(pkg)
 
-# Bioconductor
+# --- Bioconductor ---
 bioc_packages <- c(
   "Seurat",
   "SingleR", "celldex",
@@ -47,27 +57,15 @@ bioc_packages <- c(
   "ComplexHeatmap", "circlize"
 )
 
-for (pkg in bioc_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    cat("Installing", pkg, "(Bioconductor)...\n")
-    BiocManager::install(pkg, lib = lib_path,
-                         ask = FALSE, update = FALSE)
-  } else {
-    cat("OK (already installed):", pkg, "\n")
-  }
-}
+cat("\n--- Bioconductor packages ---\n")
+for (pkg in bioc_packages) install_if_missing(pkg, bioc = TRUE)
 
-# MuSiC (GitHub - non su CRAN/Bioconductor)
+# --- MuSiC (GitHub) ---
+cat("\n--- MuSiC (GitHub) ---\n")
+install_if_missing("MuSiC")
 if (!requireNamespace("MuSiC", quietly = TRUE)) {
-  cat("Installing MuSiC from GitHub...\n")
-  if (!requireNamespace("remotes", quietly = TRUE)) {
-    install.packages("remotes", lib = lib_path,
-                     repos = "https://cloud.r-project.org")
-  }
-  remotes::install_github("xuranw/MuSiC", lib = lib_path)
-} else {
-  cat("OK (already installed): MuSiC\n")
+  remotes::install_github("xuranw/MuSiC")
 }
 
 cat("\n=== Installation complete ===\n")
-cat("Loaded library path:", lib_path, "\n")
+cat("Verify with: sessionInfo()\n")
