@@ -92,11 +92,30 @@ MESENCHYMAL_MARKERS <- c(
   "ZEB1", "ZEB2", "CDH2", "MMP2", "MMP9"
 )
 
-# Marker neuroendocrini/tumorali PGL
+# Marker neuroendocrini/tumorali PGL (cellule cromaffini)
 NEUROENDOCRINE_MARKERS <- c(
   "CHGA", "CHGB", "SYP", "TH", "DBH",
   "PHOX2B", "PHOX2A", "RET", "HAND2",
   "PNMT", "NPY", "SCG2", "SCG3"
+)
+
+# Marker sustentacolari (cellule di supporto specifiche PGL)
+SUSTENTACULAR_MARKERS <- c(
+  "S100B", "SOX10", "GFAP", "NGFR", "NES",
+  "PLP1", "CDH19", "ERBB3", "L1CAM"
+)
+
+# Marker endoteliali
+ENDOTHELIAL_MARKERS <- c(
+  "PECAM1", "VWF", "CDH5", "CLDN5", "ENG",
+  "ESAM", "PTPRB", "ROBO4", "KDR"
+)
+
+# Marker immunitari (macrofagi, linfociti T, linfociti B)
+IMMUNE_MARKERS <- c(
+  "PTPRC", "CD68", "C1QA", "C1QB", "MRC1",
+  "CD3D", "CD3E", "CD8A", "CD4",
+  "CD79A", "MS4A1", "NKG7"
 )
 
 # -----------------------------------------------------------------------------

@@ -56,55 +56,59 @@ print(table(seu@meta.data[[SAMPLEID_COL]]))
 message("\n--- 2. Annotazione marker-based ---")
 
 # Filtra marker presenti nel dataset
-ne_avail  <- NEUROENDOCRINE_MARKERS[NEUROENDOCRINE_MARKERS %in% rownames(seu)]
-mes_avail <- MESENCHYMAL_MARKERS[MESENCHYMAL_MARKERS %in% rownames(seu)]
+marker_lists <- list(
+  Neuroendocrine  = NEUROENDOCRINE_MARKERS,
+  Mesenchymal     = MESENCHYMAL_MARKERS,
+  Sustentacular   = SUSTENTACULAR_MARKERS,
+  Endothelial     = ENDOTHELIAL_MARKERS,
+  Immune          = IMMUNE_MARKERS
+)
 
-cat(sprintf("Marker neuroendocrini disponibili: %d/%d\n",
-            length(ne_avail), length(NEUROENDOCRINE_MARKERS)))
-cat(sprintf("Marker mesenchimali disponibili:   %d/%d\n",
-            length(mes_avail), length(MESENCHYMAL_MARKERS)))
+avail_lists <- lapply(marker_lists, function(m) m[m %in% rownames(seu)])
 
-if (length(ne_avail) < 3 || length(mes_avail) < 3) {
-  stop("Troppo pochi marker disponibili per l'annotazione. Verifica i nomi dei geni.")
+for (nm in names(avail_lists)) {
+  cat(sprintf("%-16s: %d/%d marker disponibili\n",
+              nm, length(avail_lists[[nm]]), length(marker_lists[[nm]])))
 }
 
-# Calcola module scores (punteggi relativi a set random di geni)
-seu <- AddModuleScore(seu, features = list(ne_avail),  name = "NE_score",  assay = "RNA")
-seu <- AddModuleScore(seu, features = list(mes_avail), name = "Mes_score", assay = "RNA")
-# AddModuleScore aggiunge suffisso "1": NE_score1, Mes_score1
+# Rimuovi popolazioni con meno di 3 marker disponibili
+avail_lists <- Filter(function(m) length(m) >= 3, avail_lists)
+if (length(avail_lists) == 0) stop("Nessuna popolazione con abbastanza marker.")
 
-# Assegna il tipo cellulare in base al punteggio piu' alto (soglia = 0)
-seu$marker_celltype <- dplyr::case_when(
-  seu$NE_score1  > 0 & seu$NE_score1  >= seu$Mes_score1 ~ "Neuroendocrine",
-  seu$Mes_score1 > 0 & seu$Mes_score1 >  seu$NE_score1  ~ "Mesenchymal",
-  TRUE ~ "Other"
-)
+# Calcola module scores per ogni popolazione
+score_names <- paste0(names(avail_lists), "_score1")
+for (nm in names(avail_lists)) {
+  seu <- AddModuleScore(seu,
+                        features = list(avail_lists[[nm]]),
+                        name     = paste0(nm, "_score"),
+                        assay    = "RNA")
+}
+# AddModuleScore aggiunge suffisso "1": Neuroendocrine_score1, etc.
+
+# Assegna il tipo cellulare: vince il punteggio piu' alto (purche' > 0)
+score_mat <- as.data.frame(seu@meta.data[, score_names, drop = FALSE])
+max_score <- apply(score_mat, 1, max)
+max_pop   <- names(avail_lists)[apply(score_mat, 1, which.max)]
+
+seu$marker_celltype <- ifelse(max_score > 0, max_pop, "Other")
 
 CELLTYPE_COL <- "marker_celltype"
 
 cat("\nDistribuzione annotazione marker-based:\n")
 print(sort(table(seu$marker_celltype), decreasing = TRUE))
 
-# Distribuzione per campione
 cat("\nAnnotazione per campione:\n")
 print(table(seu@meta.data[[SAMPLEID_COL]], seu$marker_celltype))
 
-# Score distributions (per verifica)
-p_scores <- ggplot(seu@meta.data, aes(x = NE_score1, y = Mes_score1,
-                                       colour = marker_celltype)) +
-  geom_point(size = 0.3, alpha = 0.4) +
-  scale_colour_manual(values = c(
-    "Neuroendocrine" = "#E64B35",
-    "Mesenchymal"    = "#4DBBD5",
-    "Other"          = "#999999"
-  )) +
-  labs(title = "Module scores: Neuroendocrine vs Mesenchymal",
-       x = "Neuroendocrine score", y = "Mesenchymal score",
-       colour = "Cell type") +
-  THEME_PGL
-
-ggsave(file.path(RESULTS_SCRNA, "module_scores_scatter.pdf"),
-       p_scores, width = 7, height = 6)
+# Palette colori per le 6 popolazioni
+COLORS_CELLTYPE <- c(
+  "Neuroendocrine" = "#E64B35",
+  "Mesenchymal"    = "#4DBBD5",
+  "Sustentacular"  = "#00A087",
+  "Endothelial"    = "#F39B7F",
+  "Immune"         = "#8491B4",
+  "Other"          = "#B09C85"
+)
 
 # -----------------------------------------------------------------------------
 # 3. AGGIUNTA LABEL SCEVAN (tumor / normal) DAI FILE PER-SAMPLE
@@ -149,9 +153,7 @@ Idents(seu) <- CELLTYPE_COL
 p_umap_celltypes <- DimPlot(
   seu, reduction = "umap", group.by = CELLTYPE_COL,
   label = TRUE, label.size = 3, repel = TRUE, pt.size = 0.3,
-  cols = c("Neuroendocrine" = "#E64B35",
-           "Mesenchymal"    = "#4DBBD5",
-           "Other"          = "#999999")
+  cols = COLORS_CELLTYPE
 ) +
   labs(title = "Cell types (marker-based)") +
   THEME_PGL
@@ -175,16 +177,17 @@ pdf(file.path(RESULTS_SCRNA, "umap_celltypes_overview.pdf"), width = 18, height 
 print(p_umap_celltypes | p_umap_sample | p_umap_scevan)
 dev.off()
 
-# UMAP con NE score e Mes score come feature continua
-p_ne_score  <- FeaturePlot(seu, features = "NE_score1",  reduction = "umap",
-                            pt.size = 0.2, order = TRUE) +
-  labs(title = "Neuroendocrine score") + THEME_PGL
-p_mes_score <- FeaturePlot(seu, features = "Mes_score1", reduction = "umap",
-                            pt.size = 0.2, order = TRUE) +
-  labs(title = "Mesenchymal score") + THEME_PGL
+# UMAP con tutti i module scores come feature continua
+score_plots <- lapply(names(avail_lists), function(nm) {
+  FeaturePlot(seu, features = paste0(nm, "_score1"),
+              reduction = "umap", pt.size = 0.2, order = TRUE) +
+    labs(title = paste(nm, "score")) + THEME_PGL
+})
 
-pdf(file.path(RESULTS_SCRNA, "umap_module_scores.pdf"), width = 14, height = 6)
-print(p_ne_score | p_mes_score)
+pdf(file.path(RESULTS_SCRNA, "umap_module_scores.pdf"),
+    width = 7 * min(3, length(score_plots)),
+    height = 7 * ceiling(length(score_plots) / 3))
+print(patchwork::wrap_plots(score_plots, ncol = 3))
 dev.off()
 
 # -----------------------------------------------------------------------------
@@ -373,11 +376,10 @@ metadata_export <- seu@meta.data %>%
   as.data.frame() %>%
   tibble::rownames_to_column("cell_barcode") %>%
   select(cell_barcode,
-         sample       = all_of(SAMPLEID_COL),
-         cell_type    = all_of(CELLTYPE_COL),
-         NE_score     = NE_score1,
-         Mes_score    = Mes_score1,
+         sample     = all_of(SAMPLEID_COL),
+         cell_type  = all_of(CELLTYPE_COL),
          scevan_class,
+         any_of(score_names),
          any_of(c("nCount_RNA", "nFeature_RNA",
                   "percent.mt", "seurat_clusters")))
 
