@@ -28,7 +28,7 @@ echo "================================================"
 source /lustre/software/anaconda/2022.10_all/etc/profile.d/conda.sh
 conda activate seurat_env
 
-PIPELINE_DIR="/lustre/home/gfiscon/projects/PGL/pipeline"
+PIPELINE_DIR="/lustre/home/gfiscon/projects/PGL/pipeline/pipeline_linee_vs_tumore"
 cd "$PIPELINE_DIR" || exit 1
 
 run_script() {

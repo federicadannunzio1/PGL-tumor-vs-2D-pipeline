@@ -27,7 +27,7 @@ echo "================================================"
 source /lustre/software/anaconda/2022.10_all/etc/profile.d/conda.sh
 conda activate seurat_env
 
-cd /lustre/home/gfiscon/projects/PGL/pipeline || exit 1
+cd /lustre/home/gfiscon/projects/PGL/pipeline/pipeline_linee_vs_tumore || exit 1
 
 echo "Running 01_scrna_reference.R..."
 Rscript 01_scrna_reference.R
