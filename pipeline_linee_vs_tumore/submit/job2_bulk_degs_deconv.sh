@@ -25,7 +25,8 @@ echo "Start: $(date)"
 echo "Mem:   48G | CPUs: $SLURM_CPUS_PER_TASK"
 echo "================================================"
 
-module load R/4.5.2_10gcc
+source /lustre/software/anaconda/2022.10_all/etc/profile.d/conda.sh
+conda activate seurat_env
 
 PIPELINE_DIR="/lustre/home/gfiscon/projects/PGL/pipeline"
 cd "$PIPELINE_DIR" || exit 1

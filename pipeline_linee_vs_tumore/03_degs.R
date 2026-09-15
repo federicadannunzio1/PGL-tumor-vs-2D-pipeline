@@ -17,10 +17,18 @@ suppressPackageStartupMessages({
   library(ggrepel)
   library(pheatmap)
   library(RColorBrewer)
-  library(clusterProfiler)
   library(org.Hs.eg.db)
   library(AnnotationDbi)
 })
+
+# clusterProfiler opzionale: GSEA viene saltato se non installato
+HAS_CLUSTERPROFILER <- requireNamespace("clusterProfiler", quietly = TRUE)
+if (HAS_CLUSTERPROFILER) {
+  suppressPackageStartupMessages(library(clusterProfiler))
+  message("clusterProfiler disponibile: GSEA verra' eseguita.")
+} else {
+  message("clusterProfiler non disponibile: la sezione GSEA verra' saltata.")
+}
 
 check_inputs(
   file.path(RESULTS_BULK, "tximport_object.RDS"),
@@ -348,73 +356,79 @@ ggsave(file.path(RESULTS_DEGS_FIG, "mesenchymal_markers_expression.pdf"),
        p_markers, width = 11, height = 6)
 
 # -----------------------------------------------------------------------------
-# 9. GENE SET ENRICHMENT (GSEA) con clusterProfiler
+# 9. GENE SET ENRICHMENT (GSEA) con clusterProfiler (opzionale)
 # -----------------------------------------------------------------------------
 message("\n--- 9. Gene Set Enrichment Analysis ---")
 
-# Vettore ordinato per stat (score GSEA)
-gene_list <- res_df %>%
-  filter(!is.na(entrez_id), !is.na(stat)) %>%
-  arrange(desc(stat))
-
-ranked_vec <- setNames(gene_list$stat, gene_list$entrez_id)
-
-# Rimuovi duplicati (conserva il piu' alto)
-ranked_vec <- ranked_vec[!duplicated(names(ranked_vec))]
-
-## GSEA GO - Biological Process
-set.seed(SEED)
-gsea_go <- gseGO(
-  geneList     = ranked_vec,
-  OrgDb        = org.Hs.eg.db,
-  ont          = "BP",
-  minGSSize    = 15,
-  maxGSSize    = 500,
-  pvalueCutoff = 0.05,
-  pAdjustMethod = "BH",
-  verbose      = FALSE
-)
-
-if (nrow(as.data.frame(gsea_go)) > 0) {
-  write_csv(as.data.frame(gsea_go),
-            file.path(RESULTS_DEGS, "gsea_go_bp_results.csv"))
-
-  p_gsea_go <- dotplot(gsea_go, showCategory = 20, split = ".sign") +
-    facet_grid(. ~ .sign) +
-    labs(title = "GSEA - GO Biological Process") +
-    THEME_PGL
-
-  ggsave(file.path(RESULTS_DEGS_FIG, "gsea_go_dotplot.pdf"),
-         p_gsea_go, width = 14, height = 8)
+if (!HAS_CLUSTERPROFILER) {
+  message("clusterProfiler non disponibile: sezione GSEA saltata.")
 } else {
-  message("Nessun termine GO significativo trovato.")
-}
 
-## GSEA KEGG
-set.seed(SEED)
-gsea_kegg <- gseKEGG(
-  geneList      = ranked_vec,
-  organism      = "hsa",
-  minGSSize     = 15,
-  pvalueCutoff  = 0.05,
-  pAdjustMethod = "BH",
-  verbose       = FALSE
-)
+  # Vettore ordinato per stat (score GSEA)
+  gene_list <- res_df %>%
+    filter(!is.na(entrez_id), !is.na(stat)) %>%
+    arrange(desc(stat))
 
-if (nrow(as.data.frame(gsea_kegg)) > 0) {
-  write_csv(as.data.frame(gsea_kegg),
-            file.path(RESULTS_DEGS, "gsea_kegg_results.csv"))
+  ranked_vec <- setNames(gene_list$stat, gene_list$entrez_id)
 
-  p_gsea_kegg <- dotplot(gsea_kegg, showCategory = 20, split = ".sign") +
-    facet_grid(. ~ .sign) +
-    labs(title = "GSEA - KEGG Pathways") +
-    THEME_PGL
+  # Rimuovi duplicati (conserva il piu' alto)
+  ranked_vec <- ranked_vec[!duplicated(names(ranked_vec))]
 
-  ggsave(file.path(RESULTS_DEGS_FIG, "gsea_kegg_dotplot.pdf"),
-         p_gsea_kegg, width = 14, height = 8)
-} else {
-  message("Nessun pathway KEGG significativo trovato.")
-}
+  ## GSEA GO - Biological Process
+  set.seed(SEED)
+  gsea_go <- gseGO(
+    geneList     = ranked_vec,
+    OrgDb        = org.Hs.eg.db,
+    ont          = "BP",
+    minGSSize    = 15,
+    maxGSSize    = 500,
+    pvalueCutoff = 0.05,
+    pAdjustMethod = "BH",
+    verbose      = FALSE
+  )
+
+  if (nrow(as.data.frame(gsea_go)) > 0) {
+    write_csv(as.data.frame(gsea_go),
+              file.path(RESULTS_DEGS, "gsea_go_bp_results.csv"))
+
+    p_gsea_go <- dotplot(gsea_go, showCategory = 20, split = ".sign") +
+      facet_grid(. ~ .sign) +
+      labs(title = "GSEA - GO Biological Process") +
+      THEME_PGL
+
+    ggsave(file.path(RESULTS_DEGS_FIG, "gsea_go_dotplot.pdf"),
+           p_gsea_go, width = 14, height = 8)
+  } else {
+    message("Nessun termine GO significativo trovato.")
+  }
+
+  ## GSEA KEGG
+  set.seed(SEED)
+  gsea_kegg <- gseKEGG(
+    geneList      = ranked_vec,
+    organism      = "hsa",
+    minGSSize     = 15,
+    pvalueCutoff  = 0.05,
+    pAdjustMethod = "BH",
+    verbose       = FALSE
+  )
+
+  if (nrow(as.data.frame(gsea_kegg)) > 0) {
+    write_csv(as.data.frame(gsea_kegg),
+              file.path(RESULTS_DEGS, "gsea_kegg_results.csv"))
+
+    p_gsea_kegg <- dotplot(gsea_kegg, showCategory = 20, split = ".sign") +
+      facet_grid(. ~ .sign) +
+      labs(title = "GSEA - KEGG Pathways") +
+      THEME_PGL
+
+    ggsave(file.path(RESULTS_DEGS_FIG, "gsea_kegg_dotplot.pdf"),
+           p_gsea_kegg, width = 14, height = 8)
+  } else {
+    message("Nessun pathway KEGG significativo trovato.")
+  }
+
+} # end if (HAS_CLUSTERPROFILER)
 
 # -----------------------------------------------------------------------------
 # 10. SALVATAGGIO OGGETTO DESeq2 (per script successivi)

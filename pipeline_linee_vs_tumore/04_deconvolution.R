@@ -23,8 +23,6 @@ suppressPackageStartupMessages({
   library(ggplot2)
   library(ggrepel)
   library(RColorBrewer)
-  library(rstatix)
-  library(ggpubr)
 })
 
 check_inputs(
@@ -147,19 +145,42 @@ write_csv(mes_summary, file.path(RESULTS_DECONV, "mesenchymal_proportions_bulk.c
 
 # -----------------------------------------------------------------------------
 # 5. TEST STATISTICO: confronto proporzioni tumore vs 2D
-# Wilcoxon paired test su campioni con coppie complete
+# Wilcoxon paired test su campioni con coppie complete (base R)
 # -----------------------------------------------------------------------------
 message("\n--- 5. Test statistici (Wilcoxon paired) ---")
 
 # Solo coppie paired
 prop_paired <- prop_df %>% filter(paired == TRUE)
 
-stat_results <- prop_paired %>%
-  group_by(cell_type) %>%
-  wilcox_test(proportion ~ condition, paired = TRUE) %>%
-  adjust_pvalue(method = "BH") %>%
-  add_significance() %>%
-  arrange(p.adj)
+cell_types_all <- unique(prop_paired$cell_type)
+
+stat_results <- do.call(rbind, lapply(cell_types_all, function(ct) {
+  df_ct <- prop_paired %>% filter(cell_type == ct) %>%
+    arrange(patient, condition)
+  tumor_vals <- df_ct %>% filter(condition == "tumor") %>% pull(proportion)
+  line_vals  <- df_ct %>% filter(condition == "2D")    %>% pull(proportion)
+
+  # Wilcoxon paired (gestisce anche coppie incomplete)
+  res <- tryCatch(
+    wilcox.test(tumor_vals, line_vals, paired = TRUE, exact = FALSE),
+    error = function(e) list(statistic = NA, p.value = NA)
+  )
+  data.frame(
+    cell_type = ct,
+    statistic = as.numeric(res$statistic),
+    p         = res$p.value,
+    stringsAsFactors = FALSE
+  )
+}))
+
+stat_results$p.adj <- p.adjust(stat_results$p, method = "BH")
+stat_results$significance <- cut(
+  stat_results$p.adj,
+  breaks = c(-Inf, 0.001, 0.01, 0.05, Inf),
+  labels = c("***", "**", "*", "ns"),
+  right  = TRUE
+)
+stat_results <- stat_results[order(stat_results$p.adj), ]
 
 cat("\nTest Wilcoxon paired per tipo cellulare:\n")
 print(stat_results)
@@ -167,9 +188,8 @@ write_csv(stat_results,
           file.path(RESULTS_DECONV, "wilcoxon_celltype_tumor_vs_2D.csv"))
 
 # Tipi cellulari significativamente diversi
-sig_types <- stat_results %>%
-  filter(p.adj < 0.05) %>%
-  pull(cell_type)
+sig_types <- stat_results$cell_type[!is.na(stat_results$p.adj) &
+                                      stat_results$p.adj < 0.05]
 
 cat(sprintf("\nTipi cellulari significativamente diversi (padj < 0.05): %d\n",
             length(sig_types)))
@@ -222,6 +242,20 @@ mes_box_df <- prop_df %>%
   group_by(sample_id, condition, patient) %>%
   summarise(prop_mes = sum(proportion), .groups = "drop")
 
+# Calcola p-value manuale per mesenchimale (Wilcoxon paired)
+mes_tumor <- mes_box_df %>% filter(condition == "tumor") %>%
+  arrange(patient) %>% pull(prop_mes)
+mes_2d    <- mes_box_df %>% filter(condition == "2D") %>%
+  arrange(patient) %>% pull(prop_mes)
+mes_pval  <- tryCatch(
+  wilcox.test(mes_tumor, mes_2d, paired = TRUE, exact = FALSE)$p.value,
+  error = function(e) NA
+)
+mes_plab  <- ifelse(is.na(mes_pval), "p = NA",
+                    ifelse(mes_pval < 0.001, "p < 0.001",
+                           sprintf("p = %.3f", mes_pval)))
+mes_ymax  <- max(mes_box_df$prop_mes * 100, na.rm = TRUE)
+
 p_mes_box <- ggplot(mes_box_df,
                     aes(x = condition, y = prop_mes * 100,
                         color = condition, fill = condition)) +
@@ -230,11 +264,13 @@ p_mes_box <- ggplot(mes_box_df,
   geom_line(aes(group = patient), color = "grey40", alpha = 0.6, linewidth = 0.7) +
   scale_color_manual(values = COLORS_CONDITION) +
   scale_fill_manual(values  = COLORS_CONDITION) +
-  stat_compare_means(
-    method = "wilcox.test", paired = TRUE,
-    comparisons = list(c("tumor", "2D")),
-    label = "p.format", label.y.npc = 0.9
-  ) +
+  annotate("segment",
+           x = 1, xend = 2,
+           y = mes_ymax * 1.08, yend = mes_ymax * 1.08,
+           color = "black") +
+  annotate("text",
+           x = 1.5, y = mes_ymax * 1.12,
+           label = mes_plab, size = 3.5) +
   labs(
     title    = "Mesenchymal cell proportion",
     subtitle = "Primary tumor vs 2D cell lines (paired Wilcoxon test)",
