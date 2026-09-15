@@ -3,6 +3,10 @@
 # Caratterizzazione tipi cellulari nel tumore (scRNA-seq)
 # + costruzione della matrice di riferimento per la deconvoluzione bulk (MuSiC)
 #
+# Annotazione: marker-based con AddModuleScore() usando i marker definiti in
+# 00_config.R (NEUROENDOCRINE_MARKERS, MESENCHYMAL_MARKERS).
+# Non richiede SingleR o celldex.
+#
 # Input:  PGL_PFE_3_integrated_x_DE_complete_annotation.Rds (oggetto Seurat)
 #         scevan_iterato_tutti_campioni/*/scevan_PGL.RDS (label tumor/normal)
 # Output: UMAP cell types, proporzioni mesenchimali, reference matrix per MuSiC
@@ -12,8 +16,6 @@ source("00_config.R")
 
 suppressPackageStartupMessages({
   library(Seurat)
-  library(SingleR)
-  library(celldex)
   library(dplyr)
   library(readr)
   library(ggplot2)
@@ -22,20 +24,7 @@ suppressPackageStartupMessages({
   library(Biobase)
 })
 
-# =============================================================================
-# TODO - DA VERIFICARE PRIMA DI GIRARE QUESTO SCRIPT:
-#
-# Esegui in R:
-#   seu <- readRDS(SCRNA_INTEGRATED_RDS)
-#   colnames(seu@meta.data)
-#   table(seu$[nome_colonna])
-#
-# Poi aggiorna le 3 variabili qui sotto con i nomi corretti:
-# =============================================================================
-CELLTYPE_COL  <- "sctype_classification"  # TODO: verifica il nome esatto
-SAMPLEID_COL  <- "orig.ident"             # quasi certamente corretto
-SINGLER_COL   <- "SingleR.labels"         # TODO: verifica (potrebbe essere "singler_labels")
-# =============================================================================
+SAMPLEID_COL <- "orig.ident"   # colonna campione (quasi certamente corretta)
 
 check_inputs(SCRNA_INTEGRATED_RDS)
 
@@ -49,27 +38,76 @@ message("Questo passo richiede diversi minuti e ~16-20 GB di RAM...")
 seu <- readRDS(SCRNA_INTEGRATED_RDS)
 cat(sprintf("Cellule: %d | Geni: %d\n", ncol(seu), nrow(seu)))
 
-# Stampa colonne disponibili per verifica
 cat("\nColonne metadata disponibili:\n")
 print(colnames(seu@meta.data))
 
-# Verifica che le colonne configurate esistano
-for (col in c(CELLTYPE_COL, SAMPLEID_COL)) {
-  if (!col %in% colnames(seu@meta.data)) {
-    stop(sprintf(
-      "Colonna '%s' non trovata in meta.data. Colonne disponibili:\n%s",
-      col, paste(colnames(seu@meta.data), collapse = ", ")
-    ))
-  }
+if (!SAMPLEID_COL %in% colnames(seu@meta.data)) {
+  stop(sprintf("Colonna '%s' non trovata. Colonne disponibili:\n%s",
+               SAMPLEID_COL, paste(colnames(seu@meta.data), collapse = ", ")))
 }
-cat(sprintf("\nColonna cell type usata: '%s'\n", CELLTYPE_COL))
-cat("\nDistribuzione tipi cellulari:\n")
-print(sort(table(seu@meta.data[[CELLTYPE_COL]]), decreasing = TRUE))
-cat("\nCampioni (orig.ident):\n")
+cat("\nCampioni:\n")
 print(table(seu@meta.data[[SAMPLEID_COL]]))
 
 # -----------------------------------------------------------------------------
-# 2. AGGIUNTA LABEL SCEVAN (tumor / normal) DAI FILE PER-SAMPLE
+# 2. ANNOTAZIONE MARKER-BASED (Neuroendocrine / Mesenchymal / Other)
+# Usa AddModuleScore con i marker definiti in 00_config.R.
+# Piu' appropriato per PGL rispetto a SingleR con riferimenti generici.
+# -----------------------------------------------------------------------------
+message("\n--- 2. Annotazione marker-based ---")
+
+# Filtra marker presenti nel dataset
+ne_avail  <- NEUROENDOCRINE_MARKERS[NEUROENDOCRINE_MARKERS %in% rownames(seu)]
+mes_avail <- MESENCHYMAL_MARKERS[MESENCHYMAL_MARKERS %in% rownames(seu)]
+
+cat(sprintf("Marker neuroendocrini disponibili: %d/%d\n",
+            length(ne_avail), length(NEUROENDOCRINE_MARKERS)))
+cat(sprintf("Marker mesenchimali disponibili:   %d/%d\n",
+            length(mes_avail), length(MESENCHYMAL_MARKERS)))
+
+if (length(ne_avail) < 3 || length(mes_avail) < 3) {
+  stop("Troppo pochi marker disponibili per l'annotazione. Verifica i nomi dei geni.")
+}
+
+# Calcola module scores (punteggi relativi a set random di geni)
+seu <- AddModuleScore(seu, features = list(ne_avail),  name = "NE_score",  assay = "RNA")
+seu <- AddModuleScore(seu, features = list(mes_avail), name = "Mes_score", assay = "RNA")
+# AddModuleScore aggiunge suffisso "1": NE_score1, Mes_score1
+
+# Assegna il tipo cellulare in base al punteggio piu' alto (soglia = 0)
+seu$marker_celltype <- dplyr::case_when(
+  seu$NE_score1  > 0 & seu$NE_score1  >= seu$Mes_score1 ~ "Neuroendocrine",
+  seu$Mes_score1 > 0 & seu$Mes_score1 >  seu$NE_score1  ~ "Mesenchymal",
+  TRUE ~ "Other"
+)
+
+CELLTYPE_COL <- "marker_celltype"
+
+cat("\nDistribuzione annotazione marker-based:\n")
+print(sort(table(seu$marker_celltype), decreasing = TRUE))
+
+# Distribuzione per campione
+cat("\nAnnotazione per campione:\n")
+print(table(seu@meta.data[[SAMPLEID_COL]], seu$marker_celltype))
+
+# Score distributions (per verifica)
+p_scores <- ggplot(seu@meta.data, aes(x = NE_score1, y = Mes_score1,
+                                       colour = marker_celltype)) +
+  geom_point(size = 0.3, alpha = 0.4) +
+  scale_colour_manual(values = c(
+    "Neuroendocrine" = "#E64B35",
+    "Mesenchymal"    = "#4DBBD5",
+    "Other"          = "#999999"
+  )) +
+  labs(title = "Module scores: Neuroendocrine vs Mesenchymal",
+       x = "Neuroendocrine score", y = "Mesenchymal score",
+       colour = "Cell type") +
+  THEME_PGL
+
+ggsave(file.path(RESULTS_SCRNA, "module_scores_scatter.pdf"),
+       p_scores, width = 7, height = 6)
+
+# -----------------------------------------------------------------------------
+# 3. AGGIUNTA LABEL SCEVAN (tumor / normal) DAI FILE PER-SAMPLE
 # I per-sample scevan_PGL.RDS contengono: class (tumor/normal), subclone
 # -----------------------------------------------------------------------------
 message("\n--- 2. Aggiunta label SCEVAN (tumor/normal) ---")
@@ -102,18 +140,21 @@ cat(sprintf("Cellule con label SCEVAN assegnata: %d / %d\n",
             sum(!is.na(seu$scevan_class)), ncol(seu)))
 
 # -----------------------------------------------------------------------------
-# 3. UMAP - VISUALIZZAZIONE TIPI CELLULARI
+# 4. UMAP - VISUALIZZAZIONE TIPI CELLULARI
 # -----------------------------------------------------------------------------
-message("\n--- 3. UMAP tipi cellulari ---")
+message("\n--- 4. UMAP tipi cellulari ---")
 
 Idents(seu) <- CELLTYPE_COL
 
 p_umap_celltypes <- DimPlot(
   seu, reduction = "umap", group.by = CELLTYPE_COL,
-  label = TRUE, label.size = 3, repel = TRUE, pt.size = 0.3
+  label = TRUE, label.size = 3, repel = TRUE, pt.size = 0.3,
+  cols = c("Neuroendocrine" = "#E64B35",
+           "Mesenchymal"    = "#4DBBD5",
+           "Other"          = "#999999")
 ) +
-  labs(title = "Cell types (ScType)") +
-  NoLegend() + THEME_PGL
+  labs(title = "Cell types (marker-based)") +
+  THEME_PGL
 
 p_umap_sample <- DimPlot(
   seu, reduction = "umap", group.by = SAMPLEID_COL,
@@ -134,25 +175,23 @@ pdf(file.path(RESULTS_SCRNA, "umap_celltypes_overview.pdf"), width = 18, height 
 print(p_umap_celltypes | p_umap_sample | p_umap_scevan)
 dev.off()
 
-# Se SingleR e' disponibile, aggiungi anche quel UMAP
-if (SINGLER_COL %in% colnames(seu@meta.data)) {
-  p_singler <- DimPlot(
-    seu, reduction = "umap", group.by = SINGLER_COL,
-    label = TRUE, label.size = 3, repel = TRUE, pt.size = 0.3
-  ) +
-    labs(title = "Cell types (SingleR)") +
-    NoLegend() + THEME_PGL
+# UMAP con NE score e Mes score come feature continua
+p_ne_score  <- FeaturePlot(seu, features = "NE_score1",  reduction = "umap",
+                            pt.size = 0.2, order = TRUE) +
+  labs(title = "Neuroendocrine score") + THEME_PGL
+p_mes_score <- FeaturePlot(seu, features = "Mes_score1", reduction = "umap",
+                            pt.size = 0.2, order = TRUE) +
+  labs(title = "Mesenchymal score") + THEME_PGL
 
-  pdf(file.path(RESULTS_SCRNA, "umap_singler.pdf"), width = 9, height = 7)
-  print(p_singler)
-  dev.off()
-}
+pdf(file.path(RESULTS_SCRNA, "umap_module_scores.pdf"), width = 14, height = 6)
+print(p_ne_score | p_mes_score)
+dev.off()
 
 # -----------------------------------------------------------------------------
-# 4. PROPORZIONI TIPI CELLULARI PER CAMPIONE
+# 5. PROPORZIONI TIPI CELLULARI PER CAMPIONE
 # Focus su cellule mesenchimali nel tumore originale
 # -----------------------------------------------------------------------------
-message("\n--- 4. Proporzioni cellulari per campione ---")
+message("\n--- 5. Proporzioni cellulari per campione ---")
 
 prop_df <- seu@meta.data %>%
   as.data.frame() %>%
@@ -221,9 +260,9 @@ ggsave(file.path(RESULTS_SCRNA, "mesenchymal_proportion_per_sample.pdf"),
        p_mes, width = 8, height = 6)
 
 # -----------------------------------------------------------------------------
-# 5. MARKER DEI TIPI CELLULARI (o carica quelli gia' calcolati da Pasquale)
+# 6. MARKER DEI TIPI CELLULARI (o carica quelli gia' calcolati da Pasquale)
 # -----------------------------------------------------------------------------
-message("\n--- 5. Marker per tipo cellulare ---")
+message("\n--- 6. Marker per tipo cellulare ---")
 
 marker_file_pasquale <- MARKER_FILE
 
@@ -250,11 +289,11 @@ cat("Marker calcolati/caricati per i tipi cellulari:\n")
 print(table(markers[[ifelse("cluster" %in% colnames(markers), "cluster", colnames(markers)[1])]]))
 
 # -----------------------------------------------------------------------------
-# 6. COSTRUZIONE REFERENCE MATRIX PER MuSiC
+# 7. COSTRUZIONE REFERENCE MATRIX PER MuSiC
 # Richiede: matrice counts (geni x cellule), label tipo cellulare, label paziente
 # MuSiC usa la variabilita' inter-soggetto per pesare i geni nel reference
 # -----------------------------------------------------------------------------
-message("\n--- 6. Costruzione ExpressionSet per MuSiC ---")
+message("\n--- 7. Costruzione ExpressionSet per MuSiC ---")
 
 # Estrai la count matrix raw (slot RNA, layer counts)
 # In Seurat v5 la sintassi puo' essere diversa - gestito entrambi i casi
@@ -298,10 +337,10 @@ saveRDS(scrna_eset,
 message("ExpressionSet salvato per MuSiC.")
 
 # -----------------------------------------------------------------------------
-# 7. FEATURE PLOT MARKER MESENCHIMALI NEL SEURAT
+# 8. FEATURE PLOT MARKER MESENCHIMALI NEL SEURAT
 # Visualizza dove si esprimono i marker mesenchimali nell'UMAP del tumore
 # -----------------------------------------------------------------------------
-message("\n--- 7. FeaturePlot marker mesenchimali ---")
+message("\n--- 8. FeaturePlot marker mesenchimali ---")
 
 # Controlla quali marker mesenchimali sono nel Seurat
 mes_available <- MESENCHYMAL_MARKERS[
@@ -326,19 +365,20 @@ if (length(mes_available) > 0) {
 }
 
 # -----------------------------------------------------------------------------
-# 8. SALVATAGGIO METADATI ESTRATTI (senza object pesante)
+# 9. SALVATAGGIO METADATI ESTRATTI (senza object pesante)
 # -----------------------------------------------------------------------------
-message("\n--- 8. Salvataggio metadati ---")
+message("\n--- 9. Salvataggio metadati ---")
 
 metadata_export <- seu@meta.data %>%
   as.data.frame() %>%
   tibble::rownames_to_column("cell_barcode") %>%
   select(cell_barcode,
-         sample    = all_of(SAMPLEID_COL),
-         cell_type = all_of(CELLTYPE_COL),
+         sample       = all_of(SAMPLEID_COL),
+         cell_type    = all_of(CELLTYPE_COL),
+         NE_score     = NE_score1,
+         Mes_score    = Mes_score1,
          scevan_class,
-         any_of(c(SINGLER_COL,
-                  "nCount_RNA", "nFeature_RNA",
+         any_of(c("nCount_RNA", "nFeature_RNA",
                   "percent.mt", "seurat_clusters")))
 
 write_csv(metadata_export,
