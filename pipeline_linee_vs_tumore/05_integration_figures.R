@@ -170,7 +170,7 @@ panel_b_mes <- ggplot(
 ) +
   geom_boxplot(alpha = 0.3, outlier.shape = NA, width = 0.5) +
   geom_point(size = 3, alpha = 0.9) +
-  geom_line(aes(group = sample_id), color = "grey40",   # paired lines
+  geom_line(aes(group = patient), color = "grey40",   # paired lines
             alpha = 0.5, linewidth = 0.7) +
   scale_color_manual(values = COLORS_CONDITION) +
   scale_fill_manual(values  = COLORS_CONDITION) +

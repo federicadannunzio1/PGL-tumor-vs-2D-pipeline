@@ -87,7 +87,7 @@ set.seed(SEED)
 
 music_results <- music_prop(
   bulk.mtx    = exprs(bulk_eset),
-  sc.sce      = scrna_eset,
+  sc.eset     = scrna_eset,
   clusters    = "cellType",
   samples     = "sampleID",
   select.ct   = NULL,              # usa tutti i tipi cellulari
@@ -137,7 +137,7 @@ write_csv(prop_wide, file.path(RESULTS_DECONV, "music_proportions_wide.csv"))
 cat("\nRiepilogo proporzione mesenchimale:\n")
 mes_summary <- prop_df %>%
   filter(is_mesenchymal) %>%
-  group_by(sample_id, condition) %>%
+  group_by(sample_id, condition, patient) %>%
   summarise(prop_mesenchymal = sum(proportion), .groups = "drop") %>%
   arrange(condition, desc(prop_mesenchymal))
 print(mes_summary)
