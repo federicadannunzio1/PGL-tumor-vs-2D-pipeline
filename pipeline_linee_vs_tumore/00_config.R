@@ -20,8 +20,7 @@ if (.on_cluster) {
   N_CORES      <- 8   # adatta in base alle CPU richieste nel job SLURM
 
   SCRNA_INTEGRATED_RDS <- file.path(BASE_DIR,
-    "data/scrna_integrated/PGL_PFE_3_integrated_x_DE_complete_annotation.Rds")
-  SCEVAN_DIR      <- file.path(BASE_DIR, "data/scevan")
+    "data/scrna_integrated/pasquale_s_obj_multi_finalAnnotation.rds")
   BULK_SALMON_DIR <- file.path(BASE_DIR, "data/bulk_salmon")
   MARKER_FILE     <- file.path(BASE_DIR, "reference/marker_per_cluster.xlsx")
 
@@ -34,11 +33,10 @@ if (.on_cluster) {
   N_CORES      <- 4
 
   SCRNA_INTEGRATED_RDS <- file.path(BASE_DIR,
-    "analisi_alessio/PGL_PFE_3_integrated_x_DE_complete_annotation.Rds")
-  SCEVAN_DIR      <- file.path(BASE_DIR, "analisi_alessio/scevan_iterato_tutti_campioni")
+    "analisi_fede/pipeline_linee_vs_tumore/data/pasquale_s_obj_multi_finalAnnotation.rds")
   BULK_SALMON_DIR <- file.path(BASE_DIR, "analisi_pasquale/bulk RNA/RNA counts")
   MARKER_FILE     <- file.path(BASE_DIR,
-    "analisi_pasquale/scRNA PGL/results/marker_per_cluster.xlsx")
+    "analisi_pasquale/scRNA PGL/analisi_Pasquale/results/marker_per_cluster.xlsx")
 }
 
 message(sprintf("Ambiente: %s | BASE_DIR: %s", ifelse(.on_cluster, "CLUSTER", "LOCALE"), BASE_DIR))
