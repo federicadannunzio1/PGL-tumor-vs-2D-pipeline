@@ -14,7 +14,7 @@
 if (.on_cluster) {
   # --- CLUSTER (Terastat, Sapienza) ---
   BASE_DIR     <- "/lustre/home/gfiscon/projects/PGL"
-  PIPELINE_DIR <- file.path(BASE_DIR, "pipeline")
+  PIPELINE_DIR <- file.path(BASE_DIR, "pipeline/pipeline_linee_vs_tumore")
   DATA_DIR     <- file.path(PIPELINE_DIR, "data")
   RESULTS_DIR  <- file.path(BASE_DIR, "results")
   N_CORES      <- 8   # adatta in base alle CPU richieste nel job SLURM
