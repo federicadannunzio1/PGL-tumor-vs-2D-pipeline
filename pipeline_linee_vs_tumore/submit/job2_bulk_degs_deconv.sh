@@ -12,7 +12,7 @@
 #SBATCH --output=/lustre/home/gfiscon/projects/PGL/logs/job2_pipeline_%j.log
 #SBATCH --error=/lustre/home/gfiscon/projects/PGL/logs/job2_pipeline_%j.log
 #SBATCH --partition=dss
-#SBATCH --exclude=cn2d
+#SBATCH --exclude=cn2d,cn2c
 #SBATCH --time=06:00:00
 #SBATCH --mem=48G
 #SBATCH --cpus-per-task=8

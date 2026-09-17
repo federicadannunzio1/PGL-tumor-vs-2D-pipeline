@@ -11,7 +11,7 @@
 #SBATCH --output=/lustre/home/gfiscon/projects/PGL/logs/job1_scrna_%j.log
 #SBATCH --error=/lustre/home/gfiscon/projects/PGL/logs/job1_scrna_%j.log
 #SBATCH --partition=dss
-#SBATCH --exclude=cn2d
+#SBATCH --exclude=cn2d,cn2c
 #SBATCH --time=10:00:00
 #SBATCH --mem=120G
 #SBATCH --cpus-per-task=8
