@@ -25,6 +25,7 @@ suppressPackageStartupMessages({
   library(ggrepel)
   library(RColorBrewer)
 })
+select <- dplyr::select
 
 check_inputs(
   file.path(RESULTS_SCRNA, "scrna_expressionset_for_music.RDS"),
