@@ -41,6 +41,12 @@ check_inputs(
 message("\n--- 1. Caricamento dati ---")
 
 txi  <- readRDS(file.path(RESULTS_BULK, "tximport_object.RDS"))
+
+# Fix compatibilita' tximport: countsFromAbundance puo' essere NULL in versioni recenti
+if (is.null(txi$countsFromAbundance) || length(txi$countsFromAbundance) == 0) {
+  txi$countsFromAbundance <- "no"
+}
+
 meta <- read_csv(SAMPLE_METADATA, show_col_types = FALSE)
 meta$condition <- factor(meta$condition, levels = c("tumor", "2D"))
 meta$patient   <- factor(meta$patient)
