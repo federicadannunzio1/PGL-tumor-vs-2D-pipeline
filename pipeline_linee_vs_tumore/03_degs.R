@@ -117,7 +117,7 @@ message("\n--- 5. Risultati con lfcShrink (apeglm) ---")
 res_lfc <- lfcShrink(
   dds,
   coef     = "condition_2D_vs_tumor",
-  type     = "apeglm",
+  type     = "normal",
   parallel = (N_CORES > 1)
 )
 
