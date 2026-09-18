@@ -66,9 +66,11 @@ message("\n--- 2. Costruzione DESeqDataSet ---")
 meta_paired <- meta[meta$paired == TRUE, ]
 txi_counts_paired <- txi$counts[, meta_paired$sample_id]
 txi_paired <- list(
-  counts    = txi$counts[, meta_paired$sample_id],
-  abundance = txi$abundance[, meta_paired$sample_id],
-  length    = txi$length[, meta_paired$sample_id]
+  counts              = txi$counts[, meta_paired$sample_id],
+  abundance           = txi$abundance[, meta_paired$sample_id],
+  length              = txi$length[, meta_paired$sample_id],
+  countsFromAbundance = ifelse(length(txi$countsFromAbundance) == 0, "no",
+                               txi$countsFromAbundance)
 )
 class(txi_paired) <- "list"
 
