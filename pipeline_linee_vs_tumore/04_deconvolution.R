@@ -87,7 +87,7 @@ set.seed(SEED)
 
 music_results <- music_prop(
   bulk.mtx    = exprs(bulk_eset),
-  sc.eset     = scrna_eset,
+  sc.sce      = scrna_eset,
   clusters    = "cellType",
   samples     = "sampleID",
   select.ct   = NULL,              # usa tutti i tipi cellulari
