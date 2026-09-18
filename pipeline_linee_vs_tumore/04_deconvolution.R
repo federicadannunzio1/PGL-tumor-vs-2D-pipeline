@@ -67,6 +67,76 @@ cat(sprintf("\nBulk RNA-seq: %d geni x %d campioni\n",
 tpm_mat <- tpm_mat[, meta$sample_id]
 
 # -----------------------------------------------------------------------------
+# 1b. VERIFICA OVERLAP GENI bulk vs scRNA (e conversione se necessario)
+# Caso comune: bulk usa ENSEMBL IDs, scRNA usa simboli genici
+# -----------------------------------------------------------------------------
+message("\n--- 1b. Verifica overlap geni ---")
+
+common_genes_pre <- intersect(rownames(tpm_mat), rownames(scrna_sce))
+cat(sprintf("Geni in comune bulk vs scRNA (prima di eventuale conversione): %d\n",
+            length(common_genes_pre)))
+cat("Esempi bulk gene IDs: ",  paste(head(rownames(tpm_mat),  4), collapse = ", "), "\n")
+cat("Esempi scRNA gene IDs:", paste(head(rownames(scrna_sce), 4), collapse = ", "), "\n")
+
+if (length(common_genes_pre) < 100) {
+  bulk_is_ensembl  <- grepl("^ENSG", rownames(tpm_mat)[1])
+  scrna_is_ensembl <- grepl("^ENSG", rownames(scrna_sce)[1])
+
+  if (bulk_is_ensembl && !scrna_is_ensembl) {
+    message("Bulk usa ENSEMBL, scRNA usa simboli -> conversione ENSEMBL->simbolo sul bulk...")
+    suppressPackageStartupMessages(library(org.Hs.eg.db))
+    emap <- AnnotationDbi::select(
+      org.Hs.eg.db,
+      keys    = rownames(tpm_mat),
+      columns = "SYMBOL",
+      keytype = "ENSEMBL"
+    )
+    emap <- emap[!is.na(emap$SYMBOL) & !duplicated(emap$ENSEMBL), ]
+    idx  <- match(rownames(tpm_mat), emap$ENSEMBL)
+    keep <- !is.na(idx)
+    tpm_mat2 <- tpm_mat[keep, , drop = FALSE]
+    rownames(tpm_mat2) <- emap$SYMBOL[idx[keep]]
+    tpm_mat  <- tpm_mat2[!duplicated(rownames(tpm_mat2)), , drop = FALSE]
+    cat(sprintf("Bulk dopo conversione: %d geni\n", nrow(tpm_mat)))
+    common_genes_post <- intersect(rownames(tpm_mat), rownames(scrna_sce))
+    cat(sprintf("Geni in comune dopo conversione: %d\n", length(common_genes_post)))
+    if (length(common_genes_post) < 100)
+      stop("Ancora troppo pochi geni in comune dopo conversione ENSEMBL->simbolo.")
+  } else if (!bulk_is_ensembl && scrna_is_ensembl) {
+    message("scRNA usa ENSEMBL, bulk usa simboli -> conversione ENSEMBL->simbolo su scRNA...")
+    suppressPackageStartupMessages(library(org.Hs.eg.db))
+    emap <- AnnotationDbi::select(
+      org.Hs.eg.db,
+      keys    = rownames(scrna_sce),
+      columns = "SYMBOL",
+      keytype = "ENSEMBL"
+    )
+    emap <- emap[!is.na(emap$SYMBOL) & !duplicated(emap$ENSEMBL), ]
+    idx  <- match(rownames(scrna_sce), emap$ENSEMBL)
+    keep <- !is.na(idx)
+    sce_counts2 <- assay(scrna_sce, "counts")[keep, , drop = FALSE]
+    rownames(sce_counts2) <- emap$SYMBOL[idx[keep]]
+    sce_counts2 <- sce_counts2[!duplicated(rownames(sce_counts2)), , drop = FALSE]
+    scrna_sce <- SingleCellExperiment(
+      assays  = list(counts = sce_counts2),
+      colData = colData(scrna_sce)
+    )
+    cat(sprintf("scRNA dopo conversione: %d geni\n", nrow(scrna_sce)))
+    common_genes_post <- intersect(rownames(tpm_mat), rownames(scrna_sce))
+    cat(sprintf("Geni in comune dopo conversione: %d\n", length(common_genes_post)))
+    if (length(common_genes_post) < 100)
+      stop("Ancora troppo pochi geni in comune dopo conversione ENSEMBL->simbolo.")
+  } else {
+    stop(sprintf(
+      "Overlap insufficiente (%d geni) e formato identico. Controllare i dati.",
+      length(common_genes_pre)
+    ))
+  }
+} else {
+  cat("Overlap sufficiente - nessuna conversione necessaria.\n")
+}
+
+# -----------------------------------------------------------------------------
 # 2. COSTRUZIONE ExpressionSet PER IL BULK
 # MuSiC richiede che il bulk sia un ExpressionSet
 # -----------------------------------------------------------------------------
