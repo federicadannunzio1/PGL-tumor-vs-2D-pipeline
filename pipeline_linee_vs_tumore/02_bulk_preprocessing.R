@@ -58,6 +58,7 @@ txi <- tximport(
   type           = "salmon",
   txIn           = FALSE,      # file gia' gene-level (quant.genes.sf)
   txOut          = FALSE,
+  geneIdCol      = "Name",     # colonna ID geni nei file quant.genes.sf
   ignoreTxVersion = TRUE
 )
 
