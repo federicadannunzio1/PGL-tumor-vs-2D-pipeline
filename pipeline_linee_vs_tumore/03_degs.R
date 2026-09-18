@@ -21,6 +21,9 @@ suppressPackageStartupMessages({
   library(AnnotationDbi)
 })
 
+# Risolvi conflitto select: AnnotationDbi maschera dplyr::select
+select <- dplyr::select
+
 # clusterProfiler opzionale: GSEA viene saltato se non installato
 HAS_CLUSTERPROFILER <- requireNamespace("clusterProfiler", quietly = TRUE)
 if (HAS_CLUSTERPROFILER) {
