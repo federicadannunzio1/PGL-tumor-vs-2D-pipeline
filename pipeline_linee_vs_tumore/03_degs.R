@@ -149,7 +149,8 @@ write_csv(summary_df, file.path(RESULTS_DEGS, "degs_summary.csv"))
 message("\n--- 6. Annotazione gene symbols ---")
 
 res_df <- as.data.frame(res_lfc) %>%
-  tibble::rownames_to_column("gene_id")
+  tibble::rownames_to_column("gene_id") %>%
+  mutate(gene_id = sub("\\..*", "", gene_id))  # rimuove versione ENSEMBL (es. .5)
 
 res_df$gene_symbol <- mapIds(
   org.Hs.eg.db,
