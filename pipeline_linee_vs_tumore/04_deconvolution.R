@@ -84,6 +84,8 @@ if (length(common_genes_pre) < 100) {
 
   if (bulk_is_ensembl && !scrna_is_ensembl) {
     message("Bulk usa ENSEMBL, scRNA usa simboli -> conversione ENSEMBL->simbolo sul bulk...")
+    # Rimuovi numeri di versione (es. ENSG00000223972.5 -> ENSG00000223972)
+    rownames(tpm_mat) <- sub("\\..*", "", rownames(tpm_mat))
     suppressPackageStartupMessages(library(org.Hs.eg.db))
     emap <- AnnotationDbi::select(
       org.Hs.eg.db,
