@@ -292,6 +292,7 @@ top_genes <- c(top_up, top_down)
 
 # Normalizzazione: VST
 vsd <- vst(dds, blind = FALSE)
+rownames(vsd) <- sub("\\..*", "", rownames(vsd))
 heatmap_mat <- assay(vsd)[top_genes, ]
 
 # Rimpiazza gene_id con gene_symbol nelle righe
