@@ -14,7 +14,7 @@
 #SBATCH --partition=dss
 #SBATCH --exclude=cn2d,cn2c
 #SBATCH --time=06:00:00
-#SBATCH --mem=48G
+#SBATCH --mem=120G
 #SBATCH --cpus-per-task=8
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
