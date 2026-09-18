@@ -17,6 +17,7 @@ source("00_config.R")
 suppressPackageStartupMessages({
   library(MuSiC)
   library(Biobase)
+  library(SingleCellExperiment)
   library(dplyr)
   library(readr)
   library(tidyr)
@@ -39,10 +40,17 @@ message("\n--- 1. Caricamento dati ---")
 scrna_eset <- readRDS(
   file.path(RESULTS_SCRNA, "scrna_expressionset_for_music.RDS")
 )
+
+# MuSiC v1.0.0 requires SingleCellExperiment (not ExpressionSet)
+scrna_sce <- SingleCellExperiment(
+  assays  = list(counts = Biobase::exprs(scrna_eset)),
+  colData = Biobase::pData(scrna_eset)
+)
+
 cat(sprintf("Reference scRNA: %d geni x %d cellule\n",
-            nrow(exprs(scrna_eset)), ncol(exprs(scrna_eset))))
+            nrow(assay(scrna_sce)), ncol(assay(scrna_sce))))
 cat("Tipi cellulari nel reference:\n")
-print(table(scrna_eset$cellType))
+print(table(scrna_sce$cellType))
 
 tpm_mat <- read_csv(file.path(RESULTS_BULK, "tpm_matrix.csv"),
                     show_col_types = FALSE) %>%
@@ -87,7 +95,7 @@ set.seed(SEED)
 
 music_results <- music_prop(
   bulk.mtx    = exprs(bulk_eset),
-  sc.sce      = scrna_eset,
+  sc.sce      = scrna_sce,
   clusters    = "cellType",
   samples     = "sampleID",
   select.ct   = NULL,              # usa tutti i tipi cellulari
