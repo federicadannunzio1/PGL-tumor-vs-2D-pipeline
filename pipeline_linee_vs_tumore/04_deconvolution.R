@@ -52,6 +52,25 @@ cat(sprintf("Reference scRNA: %d geni x %d cellule\n",
 cat("Tipi cellulari nel reference:\n")
 print(table(scrna_sce$cellType))
 
+# MuSiC richiede >= 2 soggetti nel reference per stimare la varianza.
+# Se il reference ha un solo sampleID (tumore singolo), creiamo pseudo-repliche
+# dividendo casualmente le cellule di ogni tipo in 3 gruppi.
+n_subjects <- length(unique(scrna_sce$sampleID))
+cat(sprintf("\nSoggetti unici nel reference scRNA: %d\n", n_subjects))
+if (n_subjects < 2) {
+  message("Reference ha 1 solo soggetto: creazione di 3 pseudo-repliche per MuSiC...")
+  set.seed(SEED)
+  ct_vec  <- scrna_sce$cellType
+  ps_vec  <- character(ncol(scrna_sce))
+  for (ct in unique(ct_vec)) {
+    idx <- which(ct_vec == ct)
+    ps_vec[idx] <- sample(paste0("subj_", 1:3), length(idx), replace = TRUE)
+  }
+  scrna_sce$sampleID <- ps_vec
+  cat("Distribuzione pseudo-soggetti:\n")
+  print(table(scrna_sce$sampleID))
+}
+
 tpm_mat <- read_csv(file.path(RESULTS_BULK, "tpm_matrix.csv"),
                     show_col_types = FALSE) %>%
   tibble::column_to_rownames("gene_id") %>%
