@@ -123,8 +123,10 @@ tpm_mat <- as.data.frame(read_csv(file.path(RESULTS_BULK, "tpm_matrix.csv"),
 rownames(tpm_mat) <- tpm_mat[[1]]
 tpm_mat <- tpm_mat[, -1]
 
-# Strip versione ENSEMBL
-rownames(tpm_mat) <- sub("\\..*", "", rownames(tpm_mat))
+# Strip versione ENSEMBL e rimuovi duplicati
+stripped <- sub("\\..*", "", rownames(tpm_mat))
+tpm_mat <- tpm_mat[!duplicated(stripped), ]
+rownames(tpm_mat) <- stripped[!duplicated(stripped)]
 
 # Caricamento metadata
 meta <- read_csv(SAMPLE_METADATA, show_col_types = FALSE)
