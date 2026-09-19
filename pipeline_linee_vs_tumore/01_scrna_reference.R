@@ -86,7 +86,7 @@ p_umap_celltypes <- DimPlot(
   label = TRUE, label.size = 3, repel = TRUE, pt.size = 0.3,
   cols = COLORS_CELLTYPE
 ) +
-  labs(title = "Cell types (Pasquale annotation)") +
+  labs(title = "Cell types") +
   THEME_PGL
 
 p_umap_sample <- DimPlot(
@@ -138,7 +138,7 @@ p_prop <- ggplot(prop_df, aes(x = sample, y = proportion, fill = cell_type)) +
   geom_col() +
   scale_fill_manual(values = COLORS_CELLTYPE) +
   labs(
-    title = "Cell type composition per sample (tumor scRNA-seq)",
+    title = "Cell type composition per sample",
     x = "Sample", y = "Proportion", fill = "Cell type"
   ) +
   THEME_PGL +
@@ -156,7 +156,7 @@ p_mes <- ggplot(prop_mes,
             hjust = -0.1, size = 3.5) +
   coord_flip() +
   labs(
-    title = "% mesenchymal/stromal cells per sample (tumor scRNA-seq)",
+    title = "% mesenchymal cells per sample",
     x = "Sample", y = "% mesenchymal cells"
   ) +
   ylim(0, max(prop_mes$proportion_mesenchymal * 100, na.rm = TRUE) * 1.2) +

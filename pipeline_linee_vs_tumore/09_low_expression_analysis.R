@@ -86,7 +86,7 @@ if (length(available_genes) > 0) {
     DotPlot(seu, features = available_genes) +
       RotatedAxis() +
       THEME_PGL +
-      ggtitle("Espressione geni target per tipo cellulare")
+      ggtitle("Target gene expression by cell type")
   )
   dev.off()
   message("Salvato: dotplot_target_genes.pdf")
@@ -171,8 +171,8 @@ if (nrow(target_map) > 0) {
       geom_jitter(width = 0.15, size = 1.5, alpha = 0.6) +
       facet_wrap(~ symbol, scales = "free_y") +
       scale_fill_manual(values = c("tumor" = "#E64B35", "2D" = "#4DBBD5")) +
-      labs(x = "Condizione", y = "log2(TPM + 1)",
-           title = "Espressione geni target - Bulk RNA-seq") +
+      labs(x = "Condition", y = "log2(TPM + 1)",
+           title = "Target gene expression \u2014 Bulk RNA-seq") +
       THEME_PGL +
       theme(legend.position = "none")
 

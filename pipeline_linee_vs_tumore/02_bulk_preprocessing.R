@@ -131,7 +131,7 @@ p_pca <- ggplot(pca_df, aes(x = PC1, y = PC2,
   ggrepel::geom_text_repel(size = 3, show.legend = FALSE) +
   scale_color_manual(values = COLORS_CONDITION) +
   labs(
-    title = "PCA - Bulk RNA-seq (log2 TPM)",
+    title = "PCA — Bulk RNA-seq",
     x = sprintf("PC1 (%.1f%%)", var_exp[1]),
     y = sprintf("PC2 (%.1f%%)", var_exp[2]),
     color = "Condition"
@@ -162,7 +162,7 @@ pheatmap(
   annotation_colors = ann_colors,
   color           = colorRampPalette(c("#2166AC", "white", "#B2182B"))(100),
   breaks          = seq(0.7, 1.0, length.out = 101),
-  main            = "Pearson Correlation (log2 TPM)",
+  main            = "Sample correlation",
   fontsize        = 9,
   border_color    = NA
 )

@@ -106,7 +106,7 @@ dds <- DESeq(dds, parallel = (N_CORES > 1))
 
 # Dispersion plot
 pdf(file.path(RESULTS_DEGS_FIG, "dispersion_plot.pdf"), width = 7, height = 5)
-plotDispEsts(dds, main = "Dispersion estimates - DESeq2")
+plotDispEsts(dds, main = "Dispersion estimates")
 dev.off()
 
 # -----------------------------------------------------------------------------
@@ -233,7 +233,7 @@ message("\n--- 8. Figure ---")
 ## 8a. MA plot
 pdf(file.path(RESULTS_DEGS_FIG, "ma_plot.pdf"), width = 7, height = 5)
 plotMA(res_raw, alpha = DEG_PADJ_THRESHOLD,
-       main = "MA plot - 2D vs tumor", ylim = c(-8, 8))
+       main = "MA plot", ylim = c(-8, 8))
 abline(h = c(-DEG_LFC_THRESHOLD, DEG_LFC_THRESHOLD), col = "blue", lty = 2)
 dev.off()
 
@@ -275,8 +275,8 @@ p_volcano <- ggplot(volcano_df,
   geom_hline(yintercept = -log10(DEG_PADJ_THRESHOLD),
              linetype = "dashed", color = "grey30") +
   labs(
-    title = "Volcano plot: primary cell lines (2D) vs tumor",
-    subtitle = "Highlighted: mesenchymal markers (blue) and neuroendocrine markers (red)",
+    title = "Volcano plot — 2D vs Tumor",
+    subtitle = "Blue: mesenchymal | Red: neuroendocrine",
     x = "log2 Fold Change (2D / tumor)",
     y = "-log10 (padj)",
     color = NULL
@@ -327,7 +327,7 @@ pheatmap(
   show_colnames   = TRUE,
   fontsize_row    = 8,
   fontsize_col    = 9,
-  main            = "Top 50 DEGs (z-score VST)\n2D vs tumor"
+  main            = "Top 50 DEGs"
 )
 dev.off()
 
@@ -358,7 +358,7 @@ p_markers <- ggplot(markers_df, aes(x = gene, y = expression,
   scale_color_manual(values = COLORS_CONDITION) +
   scale_fill_manual(values  = COLORS_CONDITION) +
   labs(
-    title = "Mesenchymal marker expression (VST)",
+    title = "Mesenchymal marker expression",
     x = NULL, y = "Normalized expression (VST)",
     color = "Condition", fill = "Condition"
   ) +
@@ -406,7 +406,7 @@ if (!HAS_CLUSTERPROFILER) {
 
     p_gsea_go <- dotplot(gsea_go, showCategory = 20, split = ".sign") +
       facet_grid(. ~ .sign) +
-      labs(title = "GSEA - GO Biological Process") +
+      labs(title = "GSEA — GO Biological Process") +
       THEME_PGL
 
     ggsave(file.path(RESULTS_DEGS_FIG, "gsea_go_dotplot.pdf"),
@@ -432,7 +432,7 @@ if (!HAS_CLUSTERPROFILER) {
 
     p_gsea_kegg <- dotplot(gsea_kegg, showCategory = 20, split = ".sign") +
       facet_grid(. ~ .sign) +
-      labs(title = "GSEA - KEGG Pathways") +
+      labs(title = "GSEA — KEGG") +
       THEME_PGL
 
     ggsave(file.path(RESULTS_DEGS_FIG, "gsea_kegg_dotplot.pdf"),

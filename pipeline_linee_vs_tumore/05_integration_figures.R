@@ -104,7 +104,7 @@ panel_a_stack <- ggplot(
   geom_col(width = 0.85) +
   scale_fill_manual(values = cell_colors) +
   labs(
-    title = "A - Tumor cell type composition (scRNA-seq)",
+    title = "A \u2014 Tumor cell type composition",
     x = NULL, y = "Proportion", fill = "Cell type"
   ) +
   THEME_PGL +
@@ -123,7 +123,7 @@ panel_a_mes <- ggplot(
   coord_flip() +
   ylim(0, max(scrna_mes_prop$proportion_mesenchymal * 100) * 1.25) +
   labs(
-    title = "A2 - % mesenchymal cells per patient",
+    title = "A2 \u2014 Mesenchymal cells per patient",
     x = "Sample", y = "% mesenchymal cells"
   ) +
   THEME_PGL
@@ -153,7 +153,7 @@ panel_b_stack <- ggplot(
   scale_fill_manual(values = cell_colors) +
   facet_grid(. ~ condition, scales = "free_x", space = "free_x") +
   labs(
-    title = "B - Estimated composition (MuSiC) - Tumor vs 2D cell lines",
+    title = "B \u2014 Deconvolution \u2014 Cell type composition",
     x = NULL, y = "Proportion", fill = "Cell type"
   ) +
   THEME_PGL +
@@ -175,7 +175,7 @@ panel_b_mes <- ggplot(
   scale_color_manual(values = COLORS_CONDITION) +
   scale_fill_manual(values  = COLORS_CONDITION) +
   labs(
-    title = "B2 - % mesenchymal cells:\ntumor vs 2D cell lines",
+    title = "B2 \u2014 Mesenchymal proportion",
     x = NULL, y = "% mesenchymal cells",
     color = NULL, fill = NULL
   ) +
@@ -234,8 +234,8 @@ panel_c <- ggplot(degs_all_plot,
   geom_hline(yintercept = -log10(DEG_PADJ_THRESHOLD),
              linetype = "dashed", color = "grey30", linewidth = 0.5) +
   labs(
-    title    = "C - Volcano plot: 2D cell lines vs tumor",
-    subtitle = sprintf("%d total DEGs | Highlighted: mesenchymal and neuroendocrine markers",
+    title    = "C \u2014 Volcano plot",
+    subtitle = sprintf("%d DEGs | Mesenchymal & neuroendocrine markers highlighted",
                        nrow(degs_filtered)),
     x = "log2 Fold Change (2D / tumor)",
     y = "-log10 (padj)",
@@ -317,7 +317,7 @@ ggvenn::ggvenn(
   text_size     = 5,
   set_name_size = 4
 ) +
-  labs(title = "D - Overlap: DEGs up in 2D vs mesenchymal markers (tumor scRNA-seq)") +
+  labs(title = "D \u2014 DEG vs mesenchymal marker overlap") +
   THEME_PGL
 dev.off()
 
@@ -341,7 +341,7 @@ if (length(overlap_mes_2D) > 0) {
                       guide = "none") +
     coord_flip() +
     labs(
-      title = "Mesenchymal markers (scRNA-seq) that are DEGs in 2D cell lines",
+      title = "Mesenchymal markers among DEGs",
       x = NULL, y = "log2FC (2D / tumor)"
     ) +
     THEME_PGL +
@@ -382,7 +382,7 @@ p_nontumor <- ggplot(
   coord_flip() +
   labs(
     title    = "Non-tumor cell proportion per sample",
-    subtitle = "Above 50%: cell lines are not composed exclusively of tumor cells",
+    subtitle = NULL,
     x = NULL, y = "% non-tumor cells (MuSiC estimate)",
     fill = "Condition"
   ) +

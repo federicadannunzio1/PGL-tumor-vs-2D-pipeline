@@ -94,7 +94,7 @@ for (group_name in names(gene_groups)) {
 
   # DotPlot
   dp <- DotPlot(seu, features = available) +
-    labs(title = sprintf("DotPlot - %s", gsub("_", " ", group_name))) +
+    labs(title = sprintf("DotPlot \u2014 %s", gsub("_", " ", group_name))) +
     THEME_PGL +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"))
 

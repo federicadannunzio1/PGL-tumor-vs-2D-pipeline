@@ -322,8 +322,8 @@ p_stack <- ggplot(prop_df,
   scale_fill_manual(values = type_colors) +
   facet_grid(. ~ condition, scales = "free_x", space = "free_x") +
   labs(
-    title = "Estimated cell type composition (MuSiC)",
-    subtitle = "Bulk RNA-seq deconvolution using tumor scRNA-seq as reference",
+    title = "Deconvolution — Cell type composition",
+    subtitle = NULL,
     x = NULL, y = "Estimated proportion", fill = "Cell type"
   ) +
   THEME_PGL +
@@ -373,7 +373,7 @@ p_mes_box <- ggplot(mes_box_df,
            label = mes_plab, size = 3.5) +
   labs(
     title    = "Mesenchymal cell proportion",
-    subtitle = "Primary tumor vs 2D cell lines (paired Wilcoxon test)",
+    subtitle = NULL,
     x = "Condition", y = "% mesenchymal cells",
     color = NULL, fill = NULL
   ) +
@@ -398,7 +398,7 @@ if (length(sig_types) > 0) {
     scale_fill_manual(values  = COLORS_CONDITION) +
     facet_wrap(~ cell_type, scales = "free_y") +
     labs(
-      title = "Significantly different cell types (padj < 0.05)",
+      title = "Significant cell types (padj < 0.05)",
       x = "Condition", y = "% estimated proportion",
       color = NULL, fill = NULL
     ) +
@@ -432,7 +432,7 @@ pheatmap::pheatmap(
   color           = colorRampPalette(c("white", "#E64B35"))(100),
   cluster_rows    = FALSE,
   cluster_cols    = TRUE,
-  main            = "Estimated cell type proportions (MuSiC)",
+  main            = "Deconvolution — Cell type proportions",
   fontsize         = 9,
   border_color    = NA
 )

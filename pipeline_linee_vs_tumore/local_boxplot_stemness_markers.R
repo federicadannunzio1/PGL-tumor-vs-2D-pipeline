@@ -96,7 +96,7 @@ p <- ggplot(long_df,
   scale_fill_manual(values  = COLORS_CONDITION) +
   facet_wrap(~ gene, scales = "free_y", ncol = 4) +
   labs(
-    title = "Stemness & Neuroendocrine markers: Tumor vs 2D cell lines",
+    title = "Stemness & neuroendocrine markers",
     x     = NULL,
     y     = expression(log[2](TPM + 1))
   ) +
