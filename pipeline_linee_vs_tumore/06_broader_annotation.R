@@ -64,7 +64,7 @@ broader_map <- c(
 )
 
 # Applica mapping
-seu$broader_annotation <- broader_map[seu$celltype_pasquale]
+seu@meta.data$broader_annotation <- unname(broader_map[seu$celltype_pasquale])
 
 # Controlla tipi non mappati
 unmapped <- is.na(seu$broader_annotation)
